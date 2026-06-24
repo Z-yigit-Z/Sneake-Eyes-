@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Maze Chase</title>
+<meta name="description" content="Neon arcade maze game — guide the mouse through mazes while escaping colorful snakes!">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --black:#000;--surface:#131313;--cyan:#00f2ff;--cyan-dim:rgba(0,242,255,.15);
+  --orange:#fd8b00;--orange-dim:rgba(253,139,0,.15);--red:#ff4444;--red-dim:rgba(255,68,68,.15);
+  --pink:#ff69b4;--green:#00ff88;--green-dim:rgba(0,255,136,.15);
+  --text:#e2e2e2;--text-dim:#849495;--border:#3a494b;
+  --font-head:'Space Grotesk',sans-serif;--font-mono:'JetBrains Mono',monospace;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--black);color:var(--text);font-family:var(--font-mono)}
+#scanlines{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(0,242,255,.03) 1px,rgba(0,242,255,.03) 2px)}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center}
+.screen.active{display:flex}
+#title-screen{background:var(--black);position:relative;overflow:hidden}
+#title-screen .grid-bg{position:absolute;top:0;left:0;width:100%;height:100%;
+  background-image:linear-gradient(rgba(0,242,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,242,255,.04) 1px,transparent 1px);
+  background-size:40px 40px;animation:gridScroll 20s linear infinite}
+@keyframes gridScroll{to{background-position:40px 40px}}
+.title-header{position:absolute;top:0;left:0;width:100%;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 24px;border-bottom:2px solid var(--cyan);z-index:2}
+.title-header h2{font-family:var(--font-head);font-size:22px;color:var(--cyan);text-shadow:0 0 10px var(--cyan),0 0 30px rgba(0,242,255,.3);letter-spacing:2px}
+.title-header .header-btns{display:flex;gap:12px}
+.title-header .icon-btn{background:none;border:1px solid var(--border);color:var(--text-dim);width:36px;height:36px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.title-header .icon-btn:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 8px var(--cyan-dim)}
+.title-content{display:flex;flex-direction:column;align-items:center;gap:24px;z-index:2}
+.title-text{font-family:var(--font-head);text-align:center;font-size:clamp(40px,10vw,80px);font-weight:700;
+  color:var(--cyan);text-shadow:0 0 20px var(--cyan),0 0 60px rgba(0,242,255,.4),0 0 100px rgba(0,242,255,.2);
+  line-height:1;letter-spacing:-2px;animation:titlePulse 3s ease-in-out infinite}
+@keyframes titlePulse{0%,100%{text-shadow:0 0 20px var(--cyan),0 0 60px rgba(0,242,255,.4)}50%{text-shadow:0 0 30px var(--cyan),0 0 80px rgba(0,242,255,.6),0 0 120px rgba(0,242,255,.3)}}
+.title-logo{width:clamp(180px,35vw,300px);height:clamp(180px,35vw,300px);border:2px solid var(--orange);
+  display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+  box-shadow:0 0 15px var(--orange-dim),inset 0 0 15px var(--orange-dim)}
+.title-logo img{width:80%;height:80%;object-fit:contain}
+.title-buttons{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.btn{font-family:var(--font-mono);font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:2px;
+  padding:14px 32px;cursor:pointer;transition:all .2s;border:none;outline:none;position:relative;min-width:160px}
+.btn-primary{background:var(--cyan);color:var(--black);border:2px solid var(--cyan)}
+.btn-primary:hover{box-shadow:0 0 15px var(--cyan),0 0 30px rgba(0,242,255,.3);transform:translateY(-2px)}
+.btn-secondary{background:transparent;color:var(--orange);border:2px solid var(--orange)}
+.btn-secondary:hover{box-shadow:0 0 15px var(--orange-dim);background:var(--orange-dim);transform:translateY(-2px)}
+.btn-danger{background:transparent;color:var(--red);border:2px solid var(--red)}
+.btn-danger:hover{box-shadow:0 0 15px var(--red-dim);background:var(--red-dim)}
+.btn-success{background:var(--green);color:var(--black);border:2px solid var(--green)}
+.btn-success:hover{box-shadow:0 0 15px var(--green),0 0 30px rgba(0,255,136,.3)}
+.title-footer{position:absolute;bottom:0;left:0;width:100%;padding:12px 24px;border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);z-index:2;letter-spacing:1px}
+#game-screen{background:var(--black);flex-direction:column;gap:0}
+#hud{width:100%;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:2px solid var(--cyan);font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:1px;flex-shrink:0}
+.hud-left,.hud-right{display:flex;align-items:center;gap:16px}
+.hud-item{display:flex;align-items:center;gap:6px}
+.hud-label{color:var(--text-dim);font-size:11px}
+.hud-value{color:var(--cyan);text-shadow:0 0 6px var(--cyan-dim)}
+.hud-lives{display:flex;gap:4px}
+.hud-life{width:20px;height:20px;background-size:contain;background-repeat:no-repeat;background-position:center;opacity:.9}
+.hud-life.lost{opacity:.2;filter:grayscale(1)}
+#canvas-container{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+#game-canvas{image-rendering:auto}
+#mobile-controls{display:none;position:absolute;bottom:20px;left:50%;transform:translateX(-50%);z-index:10}
+.dpad{display:grid;grid-template-columns:60px 60px 60px;grid-template-rows:60px 60px 60px;gap:4px}
+.dpad-btn{background:rgba(0,242,255,.1);border:1px solid rgba(0,242,255,.3);color:var(--cyan);font-size:20px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;
+  user-select:none;touch-action:manipulation}
+.dpad-btn:active{background:rgba(0,242,255,.3);box-shadow:0 0 10px var(--cyan-dim)}
+.dpad-center{background:transparent;border:none}
+#settings-screen{background:var(--black)}
+.settings-panel{width:90%;max-width:600px;border:2px solid var(--cyan);padding:32px;position:relative;
+  max-height:90vh;overflow-y:auto;box-shadow:0 0 20px var(--cyan-dim)}
+.settings-title{font-family:var(--font-head);font-size:28px;color:var(--cyan);
+  text-shadow:0 0 15px var(--cyan);margin-bottom:8px;letter-spacing:2px}
+.settings-subtitle{font-size:13px;color:var(--text-dim);margin-bottom:24px}
+.settings-section{margin-bottom:24px}
+.settings-section-title{font-family:var(--font-head);font-size:16px;color:var(--orange);
+  margin-bottom:12px;padding-left:12px;border-left:3px solid var(--orange);letter-spacing:1px}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;gap:16px}
+.setting-label{font-size:12px;color:var(--text);text-transform:uppercase;letter-spacing:1px}
+.setting-value{font-size:12px;color:var(--cyan);min-width:40px;text-align:right}
+input[type="range"]{-webkit-appearance:none;appearance:none;width:200px;height:4px;background:var(--border);outline:none;cursor:pointer}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;background:var(--cyan);cursor:pointer}
+.toggle{position:relative;width:44px;height:24px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-track{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--border);transition:.2s}
+.toggle-track::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:var(--text-dim);transition:.2s}
+.toggle input:checked+.toggle-track{background:rgba(0,242,255,.3);border:1px solid var(--cyan)}
+.toggle input:checked+.toggle-track::before{transform:translateX(20px);background:var(--cyan)}
+.controls-display{display:flex;gap:16px;flex-wrap:wrap}
+.control-group{border:1px solid var(--border);padding:16px;flex:1;min-width:150px;text-align:center}
+.control-group-title{font-size:11px;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+.key-row{display:flex;justify-content:center;gap:4px;margin-bottom:4px}
+.key{width:36px;height:36px;border:1px solid var(--cyan);display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--cyan);font-weight:600}
+.key-wide{width:80px}
+.settings-actions{display:flex;gap:12px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
+#gameover-screen{background:rgba(0,0,0,.95)}
+.gameover-content{display:flex;flex-direction:column;align-items:center;gap:20px;padding:32px}
+.gameover-title{font-family:var(--font-head);font-size:clamp(36px,8vw,64px);color:var(--red);
+  text-shadow:0 0 20px var(--red),0 0 60px rgba(255,68,68,.4);animation:glitch 2s infinite;letter-spacing:4px}
+@keyframes glitch{0%,94%,100%{transform:translate(0)}95%{transform:translate(-3px,1px)}96%{transform:translate(3px,-1px)}97%{transform:translate(-1px,2px)}}
+.gameover-score{font-size:20px;color:var(--orange);text-shadow:0 0 10px var(--orange-dim)}
+.gameover-highscores{border:1px solid var(--border);padding:16px;width:280px}
+.highscore-title{font-size:13px;color:var(--cyan);margin-bottom:10px;text-align:center;letter-spacing:2px}
+.highscore-entry{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:var(--text-dim)}
+.highscore-entry.current{color:var(--orange)}
+.highscore-rank{color:var(--cyan);width:24px}
+.gameover-buttons{display:flex;gap:12px}
+#levelcomplete-screen{background:rgba(0,0,0,.92)}
+.levelcomplete-content{display:flex;flex-direction:column;align-items:center;gap:20px;padding:32px}
+.levelcomplete-title{font-family:var(--font-head);font-size:clamp(28px,6vw,48px);color:var(--green);
+  text-shadow:0 0 20px var(--green),0 0 60px rgba(0,255,136,.4);letter-spacing:3px}
+.level-stats{border:1px solid var(--green);padding:20px;min-width:250px}
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
+.stat-label{color:var(--text-dim)}
+.stat-value{color:var(--green)}
+#quiz-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);
+  display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px)}
+#quiz-overlay.active{display:flex}
+.quiz-panel{border:2px solid var(--orange);padding:32px;background:rgba(10,10,10,.98);
+  max-width:450px;width:90%;text-align:center;box-shadow:0 0 30px var(--orange-dim),0 0 60px rgba(253,139,0,.1);
+  animation:quizAppear .4s ease-out}
+@keyframes quizAppear{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.quiz-icon{font-size:40px;margin-bottom:8px}
+.quiz-title{font-family:var(--font-head);font-size:22px;color:var(--orange);
+  text-shadow:0 0 12px var(--orange-dim);margin-bottom:4px;letter-spacing:2px}
+.quiz-subtitle{font-size:12px;color:var(--text-dim);margin-bottom:20px}
+.quiz-question{font-family:var(--font-head);font-size:clamp(28px,6vw,42px);color:var(--text);
+  text-shadow:0 0 10px rgba(255,255,255,.2);margin-bottom:24px;padding:16px;border:1px solid var(--border)}
+.quiz-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.quiz-option{font-family:var(--font-mono);font-size:18px;font-weight:700;padding:14px;
+  background:transparent;border:2px solid var(--border);color:var(--text);cursor:pointer;transition:all .2s}
+.quiz-option:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px var(--cyan-dim)}
+.quiz-option.correct{border-color:var(--green);color:var(--green);background:var(--green-dim);
+  box-shadow:0 0 15px rgba(0,255,136,.3);animation:correctPulse .5s}
+@keyframes correctPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.quiz-option.wrong{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.quiz-option.disabled{pointer-events:none;opacity:.5}
+.quiz-option.disabled.reveal{opacity:1;border-color:var(--green);color:var(--green)}
+.quiz-feedback{font-size:14px;min-height:20px;margin-bottom:12px;font-weight:600;letter-spacing:1px}
+.quiz-feedback.correct{color:var(--green);text-shadow:0 0 8px var(--green-dim)}
+.quiz-feedback.wrong{color:var(--red);text-shadow:0 0 8px var(--red-dim)}
+.quiz-timer{width:100%;height:4px;background:var(--border);margin-bottom:16px;overflow:hidden}
+.quiz-timer-bar{height:100%;background:var(--orange);transition:width .1s linear}
+#highscore-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);
+  display:none;align-items:center;justify-content:center;z-index:1000}
+#highscore-overlay.active{display:flex}
+.highscore-panel{border:2px solid var(--cyan);padding:32px;background:rgba(10,10,10,.98);max-width:400px;width:90%;
+  box-shadow:0 0 20px var(--cyan-dim)}
+.hs-title{font-family:var(--font-head);font-size:24px;color:var(--cyan);text-shadow:0 0 12px var(--cyan);
+  text-align:center;margin-bottom:20px;letter-spacing:2px}
+.hs-list{margin-bottom:20px}
+.hs-entry{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px}
+.hs-rank{color:var(--orange);width:30px}
+.hs-score{color:var(--cyan)}
+.hs-empty{text-align:center;color:var(--text-dim);padding:20px;font-size:13px}
+@media(max-width:600px){
+  #mobile-controls{display:block}
+  .title-text{font-size:36px}
+  .settings-panel{padding:20px}
+  .quiz-panel{padding:20px}
+}
+@media(hover:none)and(pointer:coarse){#mobile-controls{display:block}}
+#pause-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);
+  display:none;align-items:center;justify-content:center;z-index:50;flex-direction:column;gap:16px}
+#pause-overlay.active{display:flex}
+.pause-text{font-family:var(--font-head);font-size:36px;color:var(--cyan);text-shadow:0 0 20px var(--cyan);letter-spacing:4px}
+.shake{animation:shake .3s}
+@keyframes shake{0%,100%{transform:translate(0)}20%{transform:translate(-4px,2px)}40%{transform:translate(4px,-2px)}60%{transform:translate(-2px,4px)}80%{transform:translate(2px,-4px)}}
+</style>
+</head>
+<body>
+<div id="scanlines"></div>
+
+<div id="title-screen" class="screen active">
+  <div class="grid-bg"></div>
+  <div class="title-header">
+    <h2>🎮 SNAKE MAZE</h2>
+    <div class="header-btns">
+      <button class="icon-btn" id="btn-settings-title" title="Settings">⚙</button>
+      <button class="icon-btn" id="btn-sound-toggle" title="Sound">🔊</button>
+    </div>
+  </div>
+  <div class="title-content">
+    <div class="title-text">SNAKE<br>MAZE<br>CHASE</div>
+    <div class="title-logo"><img id="title-mouse-img" alt="Snake Maze Chase"></div>
+    <div class="title-buttons">
+      <button class="btn btn-primary" id="btn-start">▶ START GAME</button>
+      <button class="btn btn-secondary" id="btn-highscore">🏆 HIGH SCORE</button>
+    </div>
+  </div>
+  <div class="title-footer">
+    <span>© 198X RETRO-TECH SYSTEMS — INSERT COIN TO CONTINUE</span><span>v2.0</span>
+  </div>
+</div>
+
+<div id="game-screen" class="screen">
+  <div id="hud">
+    <div class="hud-left">
+      <div class="hud-item"><span class="hud-label">SCORE</span><span class="hud-value" id="hud-score">0000</span></div>
+      <div class="hud-item"><span class="hud-label">LEVEL</span><span class="hud-value" id="hud-level">01</span></div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-item"><span class="hud-label">LIVES</span><div class="hud-lives" id="hud-lives"></div></div>
+      <button class="icon-btn" id="btn-pause" title="Pause">⏸</button>
+    </div>
+  </div>
+  <div id="canvas-container">
+    <canvas id="game-canvas"></canvas>
+    <div id="pause-overlay">
+      <div class="pause-text">PAUSED</div>
+      <button class="btn btn-primary" id="btn-resume">▶ RESUME</button>
+      <button class="btn btn-secondary" id="btn-quit">✕ QUIT</button>
+    </div>
+  </div>
+  <div id="mobile-controls">
+    <div class="dpad">
+      <div class="dpad-center"></div>
+      <button class="dpad-btn" data-dir="up">▲</button>
+      <div class="dpad-center"></div>
+      <button class="dpad-btn" data-dir="left">◄</button>
+      <div class="dpad-center"></div>
+      <button class="dpad-btn" data-dir="right">►</button>
+      <div class="dpad-center"></div>
+      <button class="dpad-btn" data-dir="down">▼</button>
+      <div class="dpad-center"></div>
+    </div>
+  </div>
+</div>
+
+<div id="settings-screen" class="screen">
+  <div class="settings-panel">
+    <div class="settings-title">SYSTEM_CONFIG</div>
+    <div class="settings-subtitle">Adjust your parameters for optimal performance.</div>
+    <div class="settings-section">
+      <div class="settings-section-title">🔊 AUDIO_SETTINGS</div>
+      <div class="setting-row"><span class="setting-label">MUSIC VOLUME</span><input type="range" id="set-music" min="0" max="100" value="80"><span class="setting-value" id="set-music-val">80%</span></div>
+      <div class="setting-row"><span class="setting-label">SFX VOLUME</span><input type="range" id="set-sfx" min="0" max="100" value="100"><span class="setting-value" id="set-sfx-val">100%</span></div>
+      <div class="setting-row"><span class="setting-label">MUTE ALL AUDIO</span><label class="toggle"><input type="checkbox" id="set-mute"><span class="toggle-track"></span></label></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">🖥 DISPLAY_SETTINGS</div>
+      <div class="setting-row"><span class="setting-label">NEON BLOOM EFFECTS</span><label class="toggle"><input type="checkbox" id="set-bloom" checked><span class="toggle-track"></span></label></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">🎮 CONTROLS</div>
+      <div class="controls-display">
+        <div class="control-group"><div class="control-group-title">MOVEMENT</div><div class="key-row"><div class="key">W</div></div><div class="key-row"><div class="key">A</div><div class="key">S</div><div class="key">D</div></div></div>
+        <div class="control-group"><div class="control-group-title">OR</div><div class="key-row"><div class="key">↑</div></div><div class="key-row"><div class="key">←</div><div class="key">↓</div><div class="key">→</div></div></div>
+        <div class="control-group"><div class="control-group-title">PAUSE</div><div class="key-row"><div class="key key-wide">ESC / P</div></div></div>
+      </div>
+    </div>
+    <div class="settings-actions">
+      <button class="btn btn-secondary" id="btn-settings-back">BACK TO MENU</button>
+      <button class="btn btn-primary" id="btn-settings-save">SAVE CHANGES</button>
+    </div>
+  </div>
+</div>
+
+<div id="gameover-screen" class="screen">
+  <div class="gameover-content">
+    <div class="gameover-title">GAME OVER</div>
+    <div class="gameover-score">FINAL SCORE: <span id="go-score">0</span></div>
+    <div class="gameover-highscores" id="go-highscores"></div>
+    <div class="gameover-buttons">
+      <button class="btn btn-primary" id="btn-replay">▶ PLAY AGAIN</button>
+      <button class="btn btn-secondary" id="btn-go-menu">MAIN MENU</button>
+    </div>
+  </div>
+</div>
+
+<div id="levelcomplete-screen" class="screen">
+  <div class="levelcomplete-content">
+    <div class="levelcomplete-title">LEVEL COMPLETE!</div>
+    <div class="level-stats">
+      <div class="stat-row"><span class="stat-label">PELLETS</span><span class="stat-value" id="lc-pellets">--</span></div>
+      <div class="stat-row"><span class="stat-label">TIME BONUS</span><span class="stat-value" id="lc-time">--</span></div>
+      <div class="stat-row"><span class="stat-label">LIVES BONUS</span><span class="stat-value" id="lc-lives">--</span></div>
+      <div class="stat-row" style="border-top:1px solid var(--green);padding-top:10px;margin-top:6px">
+        <span class="stat-label" style="color:var(--green)">TOTAL</span><span class="stat-value" id="lc-total" style="font-size:18px">--</span></div>
+    </div>
+    <button class="btn btn-success" id="btn-nextlevel">NEXT LEVEL ▶</button>
+  </div>
+</div>
+
+<div id="quiz-overlay">
+  <div class="quiz-panel">
+    <div class="quiz-icon">🧮</div>
+    <div class="quiz-title">MATEMATİK ZAMANI!</div>
+    <div class="quiz-subtitle">Doğru cevapla bonus puan kazan!</div>
+    <div class="quiz-timer"><div class="quiz-timer-bar" id="quiz-timer-bar"></div></div>
+    <div class="quiz-question" id="quiz-question">? + ? = ?</div>
+    <div class="quiz-options" id="quiz-options"></div>
+    <div class="quiz-feedback" id="quiz-feedback"></div>
+    <button class="btn btn-primary" id="btn-quiz-continue" style="display:none">DEVAM ET ▶</button>
+  </div>
+</div>
+
+<div id="highscore-overlay">
+  <div class="highscore-panel">
+    <div class="hs-title">🏆 HIGH SCORES</div>
+    <div class="hs-list" id="hs-list"></div>
+    <button class="btn btn-secondary" id="btn-hs-close" style="width:100%">CLOSE</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const CONFIG = {
+  PLAYER_SPEED: 5.5,
+  SNAKE_BASE_SPEED: 2.5,
+  SNAKE_SPEED_INC: 0.3,
+  INITIAL_LIVES: 3,
+  PELLET_SCORE: 10,
+  POWERUP_SCORE: 20,
+  EAT_SNAKE_SCORE: 50,
+  QUIZ_BONUS: 20,
+  QUIZ_INTERVAL: 100,
+  QUIZ_TIME: 15,
+  POWERUP_DURATION: 5000,
+  SNAKE_REPATH_INTERVAL: 400,
+  RESPAWN_INVULN: 2000,
+  SNAKE_START_DELAY: 2500,
+};
+
+// ============================================================
+// PAC-MAN MAP  (21 cols × 21 rows)
+// 0=pellet  1=wall  2=empty-path  3=power-pellet  4=ghost-house
+// ============================================================
+const MAP_TEMPLATE = [
+  "111111111111111111111",
+  "100000000010000000001",
+  "131110111010111011131",
+  "100000000000000000001",
+  "101110101111101011101",
+  "100000100010001000001",
+  "111110111010111011111",
+  "111110100000001011111",
+  "111110101121101011111",
+  "100000001444100000001",
+  "111110101444101011111",
+  "111110101111101011111",
+  "111110100000001011111",
+  "100000000010000000001",
+  "101110111010111011101",
+  "130010000020000010031",
+  "111010101111101010111",
+  "100000100010001000001",
+  "101111111010111111101",
+  "100000000000000000001",
+  "111111111111111111111",
+];
+
+const MAP_ROWS = MAP_TEMPLATE.length;        // 21
+const MAP_COLS = MAP_TEMPLATE[0].length;      // 21
+const PLAYER_START = { x: 10, y: 15 };       // the "2" in row 15
+const SNAKE_SPAWNS = [
+  { x: 10, y: 9,  type: 'chaser',  color: 'red'  },
+  { x: 9,  y: 10, type: 'random',  color: 'blue' },
+  { x: 11, y: 10, type: 'random',  color: 'green'},
+  { x: 10, y: 10, type: 'random',  color: 'pink' },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let gameState = 'TITLE';
+let score = 0, level = 1, lives = CONFIG.INITIAL_LIVES;
+let gameMap = [];
+let cellSize = 0, offsetX = 0, offsetY = 0;
+let player = null, snakes = [], collected = new Set();
+let powerUpActive = false, powerUpTimer = 0;
+let invulnerable = false, invulnTimer = 0;
+let quizThreshold = CONFIG.QUIZ_INTERVAL;
+let quizAnswer = 0, quizTimerId = null;
+let lastTime = 0, animFrame = 0;
+let inputQueue = [];
+let bloomEnabled = true, muted = false, musicVol = 0.8, sfxVol = 1.0;
+let totalPellets = 0;
+
+// Images
+const mouseImg = new Image();
+const snakeImg = new Image();
+let imagesLoaded = 0;
+mouseImg.onload = snakeImg.onload = () => { if (++imagesLoaded >= 2) onImagesLoaded(); };
+mouseImg.src = 'a_cute_stylized_cartoon_orange_mouse_with_big_ears_looking_slightly_nervous/screen.png';
+snakeImg.src = 'a_set_of_four_colorful_slithering_snakes_one_red_one_blue_one_green_and_one/screen.png';
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// ============================================================
+// AUDIO
+// ============================================================
+let audioCtx = null;
+function ensureAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+function playSound(type) {
+  if (muted) return;
+  ensureAudio();
+  const ac = audioCtx, now = ac.currentTime, vol = sfxVol * 0.25;
+  const g = ac.createGain(); g.connect(ac.destination);
+  switch (type) {
+    case 'collect': { const o=ac.createOscillator();o.type='square';o.frequency.setValueAtTime(660,now);o.frequency.exponentialRampToValueAtTime(1320,now+.08);g.gain.setValueAtTime(vol,now);g.gain.exponentialRampToValueAtTime(.001,now+.12);o.connect(g);o.start(now);o.stop(now+.12);break;}
+    case 'powerup': { [523,659,784,1047].forEach((f,i)=>{const o=ac.createOscillator();o.type='square';o.frequency.value=f;const gi=ac.createGain();gi.connect(ac.destination);gi.gain.setValueAtTime(vol,now+i*.08);gi.gain.exponentialRampToValueAtTime(.001,now+i*.08+.15);o.connect(gi);o.start(now+i*.08);o.stop(now+i*.08+.15);});break;}
+    case 'death': { const o=ac.createOscillator();o.type='sawtooth';o.frequency.setValueAtTime(440,now);o.frequency.exponentialRampToValueAtTime(80,now+.5);g.gain.setValueAtTime(vol,now);g.gain.exponentialRampToValueAtTime(.001,now+.5);o.connect(g);o.start(now);o.stop(now+.5);break;}
+    case 'eatsnake': { const o=ac.createOscillator();o.type='square';o.frequency.setValueAtTime(200,now);o.frequency.exponentialRampToValueAtTime(800,now+.15);g.gain.setValueAtTime(vol,now);g.gain.exponentialRampToValueAtTime(.001,now+.2);o.connect(g);o.start(now);o.stop(now+.2);break;}
+    case 'levelup': { [523,659,784,1047,784,1047].forEach((f,i)=>{const o=ac.createOscillator();o.type='triangle';o.frequency.value=f;const gi=ac.createGain();gi.connect(ac.destination);gi.gain.setValueAtTime(vol*.8,now+i*.1);gi.gain.exponentialRampToValueAtTime(.001,now+i*.1+.2);o.connect(gi);o.start(now+i*.1);o.stop(now+i*.1+.2);});break;}
+    case 'quiz': { const o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(880,now);o.frequency.setValueAtTime(1100,now+.1);o.frequency.setValueAtTime(880,now+.2);g.gain.setValueAtTime(vol*.6,now);g.gain.exponentialRampToValueAtTime(.001,now+.3);o.connect(g);o.start(now);o.stop(now+.3);break;}
+    case 'correct': { [880,1100,1320].forEach((f,i)=>{const o=ac.createOscillator();o.type='sine';o.frequency.value=f;const gi=ac.createGain();gi.connect(ac.destination);gi.gain.setValueAtTime(vol*.6,now+i*.08);gi.gain.exponentialRampToValueAtTime(.001,now+i*.08+.15);o.connect(gi);o.start(now+i*.08);o.stop(now+i*.08+.15);});break;}
+    case 'wrong': { const o=ac.createOscillator();o.type='sawtooth';o.frequency.setValueAtTime(200,now);o.frequency.setValueAtTime(150,now+.15);g.gain.setValueAtTime(vol*.5,now);g.gain.exponentialRampToValueAtTime(.001,now+.3);o.connect(g);o.start(now);o.stop(now+.3);break;}
+    case 'click': { const o=ac.createOscillator();o.type='square';o.frequency.value=600;g.gain.setValueAtTime(vol*.3,now);g.gain.exponentialRampToValueAtTime(.001,now+.04);o.connect(g);o.start(now);o.stop(now+.04);break;}
+  }
+}
+
+// ============================================================
+// MAP HELPERS
+// ============================================================
+function initMap() {
+  gameMap = [];
+  for (let y = 0; y < MAP_ROWS; y++) {
+    const row = [];
+    for (let x = 0; x < MAP_COLS; x++) row.push(parseInt(MAP_TEMPLATE[y][x]));
+    gameMap.push(row);
+  }
+}
+
+function tileAt(x, y) {
+  if (x < 0 || x >= MAP_COLS || y < 0 || y >= MAP_ROWS) return 1;
+  return gameMap[y][x];
+}
+
+function isWalkable(x, y, isSnake) {
+  const t = tileAt(x, y);
+  if (t === 1) return false;
+  if (t === 4 && !isSnake) return false;   // player can't enter ghost house
+  return true;
+}
+
+// Diğer yılanların bulunduğu kareleri döndürür (belirli bir yılan hariç)
+function getSnakeOccupiedTiles(excludeSnake) {
+  const occupied = new Set();
+  for (const s of snakes) {
+    if (s === excludeSnake || s.eaten) continue;
+    // Yılanın hem mevcut hem de hedef grid pozisyonunu blokla
+    occupied.add(`${s.gx},${s.gy}`);
+    if (s.moveProgress < 1) {
+      occupied.add(`${s.targetGx},${s.targetGy}`);
+    }
+  }
+  return occupied;
+}
+
+// Bir karenin yılan için yürünebilir olup olmadığını kontrol eder
+// (duvarlar + diğer yılanların pozisyonları)
+function isWalkableForSnake(x, y, excludeSnake) {
+  if (!isWalkable(x, y, true)) return false;
+  // Diğer yılanlarla çarpışma kontrolü
+  for (const s of snakes) {
+    if (s === excludeSnake || s.eaten) continue;
+    if (s.gx === x && s.gy === y) return false;
+    if (s.moveProgress < 1 && s.targetGx === x && s.targetGy === y) return false;
+  }
+  return true;
+}
+
+// ============================================================
+// PATHFINDING (BFS on tile grid)
+// ============================================================
+function bfsPath(sx, sy, tx, ty, isSnake, excludeSnake) {
+  if (sx === tx && sy === ty) return [];
+  const key = (x, y) => (x << 8) | y;
+  const queue = [{ x: sx, y: sy }];
+  const visited = new Set([key(sx, sy)]);
+  const parent = new Map();
+  const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+  // Shuffle directions for variety so snakes don't all pick the same path
+  for (let i = dirs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+  }
+
+  // Diğer yılanların kapladığı kareleri topla (varsa)
+  const snakeBlocked = excludeSnake ? getSnakeOccupiedTiles(excludeSnake) : null;
+
+  while (queue.length > 0) {
+    const c = queue.shift();
+    if (c.x === tx && c.y === ty) {
+      const path = [];
+      let n = c;
+      while (n) { path.unshift(n); n = parent.get(key(n.x, n.y)); }
+      return path.slice(1);
+    }
+    for (const [dx, dy] of dirs) {
+      const nx = c.x + dx, ny = c.y + dy;
+      if (!isWalkable(nx, ny, isSnake)) continue;
+      // Hedef kare hariç, diğer yılanların kareleri engelli
+      if (snakeBlocked && !(nx === tx && ny === ty) && snakeBlocked.has(`${nx},${ny}`)) continue;
+      const k = key(nx, ny);
+      if (!visited.has(k)) {
+        visited.add(k);
+        parent.set(k, c);
+        queue.push({ x: nx, y: ny });
+      }
+    }
+  }
+  // Bloklu yol bulunamazsa, bloksuz tekrar dene (sıkışmayı önlemek için)
+  if (snakeBlocked) {
+    return bfsPath(sx, sy, tx, ty, isSnake, null);
+  }
+  return [];
+}
+
+// ============================================================
+// ENTITIES
+// ============================================================
+function createPlayer(gx, gy) {
+  return { gx, gy, px: 0, py: 0, targetGx: gx, targetGy: gy, prevPx: 0, prevPy: 0, moveProgress: 1, dir: 'right' };
+}
+function createSnake(gx, gy, type, color) {
+  return { gx, gy, px: 0, py: 0, targetGx: gx, targetGy: gy, prevPx: 0, prevPy: 0, moveProgress: 1,
+    type, color, path: [], pathTimer: CONFIG.SNAKE_START_DELAY, scared: false, eaten: false, respawnTimer: 0, patrolTarget: null, randomTimer: 0 };
+}
+function updatePixelPos(e) {
+  e.px = offsetX + e.gx * cellSize + cellSize / 2;
+  e.py = offsetY + e.gy * cellSize + cellSize / 2;
+  e.prevPx = e.px; e.prevPy = e.py;
+}
+
+// ============================================================
+// LEVEL SETUP
+// ============================================================
+function setupLevel() {
+  initMap();
+  collected = new Set();
+
+  // Ekranı maksimum doldurmak için pencere boyutlarını kullan
+  const hudHeight = 44; // HUD yüksekliği (yaklaşık)
+  const maxW = window.innerWidth - 10;
+  const maxH = window.innerHeight - hudHeight - 10;
+  cellSize = Math.floor(Math.min(maxW / MAP_COLS, maxH / MAP_ROWS));
+  cellSize = Math.max(cellSize, 28);
+  canvas.width  = MAP_COLS * cellSize + 4;
+  canvas.height = MAP_ROWS * cellSize + 4;
+  offsetX = 2; offsetY = 2;
+
+  // Canvas'ı ekrana sığdırmak için ölçekle
+  const container = document.getElementById('canvas-container');
+  const containerW = container.clientWidth;
+  const containerH = container.clientHeight;
+  const scaleX = containerW / canvas.width;
+  const scaleY = containerH / canvas.height;
+  const scale = Math.min(scaleX, scaleY, 1.5); // Maksimum 1.5x zoom
+  canvas.style.transform = scale < 0.99 ? `scale(${scale})` : '';
+  canvas.style.transformOrigin = 'center center';
+
+  player = createPlayer(PLAYER_START.x, PLAYER_START.y);
+  updatePixelPos(player);
+
+  snakes = SNAKE_SPAWNS.map(s => createSnake(s.x, s.y, s.type, s.color));
+  snakes.forEach(s => updatePixelPos(s));
+
+  totalPellets = 0;
+  for (let y = 0; y < MAP_ROWS; y++)
+    for (let x = 0; x < MAP_COLS; x++)
+      if (gameMap[y][x] === 0 || gameMap[y][x] === 3) totalPellets++;
+
+  powerUpActive = false; powerUpTimer = 0;
+  invulnerable = true; invulnTimer = CONFIG.RESPAWN_INVULN;
+  inputQueue = [];
+  updateHUD();
+}
+
+// ============================================================
+// PLAYER MOVEMENT
+// ============================================================
+function tryMovePlayer(dir) {
+  if (player.moveProgress < 1) { inputQueue = [dir]; return; }
+  const deltas = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
+  const [dx, dy] = deltas[dir];
+  const nx = player.gx + dx, ny = player.gy + dy;
+  if (!isWalkable(nx, ny, false)) return;
+  player.dir = dir;
+  player.targetGx = nx; player.targetGy = ny;
+  player.prevPx = player.px; player.prevPy = player.py;
+  player.moveProgress = 0;
+}
+
+// ============================================================
+// SNAKE AI
+// ============================================================
+function getSnakeSpeed() { return Math.min(CONFIG.PLAYER_SPEED * 0.95, CONFIG.SNAKE_BASE_SPEED + (level - 1) * CONFIG.SNAKE_SPEED_INC); }
+
+// Rastgele yürünebilir bir hedef kare seç
+function pickRandomWalkableTarget() {
+  const walkable = [];
+  for (let y = 0; y < MAP_ROWS; y++)
+    for (let x = 0; x < MAP_COLS; x++)
+      if (isWalkable(x, y, true) && tileAt(x, y) !== 4) walkable.push({x, y});
+  return walkable.length > 0 ? walkable[Math.floor(Math.random() * walkable.length)] : {x: 10, y: 10};
+}
+
+function updateSnakeTarget(snake) {
+  if (snake.eaten) return;
+
+  const startX = snake.gx;
+  const startY = snake.gy;
+
+  let tx, ty;
+  if (snake.scared) {
+    // Korkmuşken oyuncudan uzaklaş
+    const dx = startX - player.gx, dy = startY - player.gy;
+    tx = Math.max(0, Math.min(MAP_COLS-1, startX + Math.sign(dx)*5));
+    ty = Math.max(0, Math.min(MAP_ROWS-1, startY + Math.sign(dy)*5));
+  } else if (snake.type === 'chaser') {
+    // Kırmızı yılan: her zaman oyuncuyu takip et
+    tx = player.gx;
+    ty = player.gy;
+  } else {
+    // Diğer yılanlar: rastgele hareket
+    if (!snake.patrolTarget || (startX === snake.patrolTarget.x && startY === snake.patrolTarget.y)) {
+      snake.patrolTarget = pickRandomWalkableTarget();
+    }
+    tx = snake.patrolTarget.x;
+    ty = snake.patrolTarget.y;
+  }
+  snake.path = bfsPath(startX, startY, tx, ty, true, snake);
+
+  // Eğer yol bulunamadıysa rastgele yürünebilir bir hedefe git
+  if (snake.path.length === 0 && (startX !== tx || startY !== ty)) {
+    const fallback = pickRandomWalkableTarget();
+    snake.path = bfsPath(startX, startY, fallback.x, fallback.y, true, snake);
+  }
+}
+
+function moveSnakeAlongPath(snake) {
+  if (snake.eaten || snake.moveProgress < 1 || snake.path.length === 0) return;
+  const next = snake.path[0];
+
+  // KARDİNAL YÖN DOĞRULAMASI: Bir sonraki adım tam olarak 1 kare
+  // yatay veya dikey olmalı — çapraz hareket YASAK
+  const dx = next.x - snake.gx;
+  const dy = next.y - snake.gy;
+  const isCardinal = (Math.abs(dx) + Math.abs(dy)) === 1;
+
+  if (!isCardinal) {
+    // Çapraz veya uzak adım tespit edildi — yolu tamamen sıfırla
+    snake.path = [];
+    snake.pathTimer = 0;
+    return;
+  }
+
+  // Hedef kare hala yürünebilir mi kontrol et (duvar + diğer yılanlar)
+  if (!isWalkableForSnake(next.x, next.y, snake)) {
+    // Yol geçersiz — yeniden hesapla
+    snake.path = [];
+    snake.pathTimer = 0;
+    return;
+  }
+
+  snake.path.shift();
+  snake.targetGx = next.x; snake.targetGy = next.y;
+  snake.prevPx = snake.px; snake.prevPy = snake.py;
+  snake.moveProgress = 0;
+}
+
+// ============================================================
+// QUIZ SYSTEM
+// ============================================================
+function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function generateQuizQuestion() {
+  const types=['+','-','×','÷'];
+  const t=types[Math.floor(Math.random()*types.length)];
+  let a,b,answer;
+  switch(t){
+    case '+': a=randInt(1,20);b=randInt(1,20);answer=a+b;break;
+    case '-': a=randInt(5,25);b=randInt(1,a-1);answer=a-b;break;
+    case '×': a=randInt(2,9);b=randInt(2,9);answer=a*b;break;
+    case '÷': b=randInt(2,9);answer=randInt(1,10);a=b*answer;break;
+  }
+  const opts=new Set([answer]);let att=0;
+  while(opts.size<4&&att<100){let w=answer+randInt(1,8)*(Math.random()<.5?-1:1);if(w>0&&!opts.has(w))opts.add(w);att++;}
+  let fb=1;while(opts.size<4){if(!opts.has(answer+fb))opts.add(answer+fb);fb++;}
+  return {text:`${a} ${t} ${b} = ?`, answer, options:shuffle([...opts])};
+}
+
+function showQuiz() {
+  gameState = 'QUIZ';
+  playSound('quiz');
+  const q = generateQuizQuestion();
+  quizAnswer = q.answer;
+  document.getElementById('quiz-question').textContent = q.text;
+  const optEl = document.getElementById('quiz-options');
+  optEl.innerHTML = '';
+  q.options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-option';
+    btn.textContent = opt;
+    btn.onclick = () => handleQuizAnswer(opt, btn);
+    optEl.appendChild(btn);
+  });
+  document.getElementById('quiz-feedback').textContent = '';
+  document.getElementById('quiz-feedback').className = 'quiz-feedback';
+  document.getElementById('btn-quiz-continue').style.display = 'none';
+  document.getElementById('quiz-overlay').classList.add('active');
+
+  // Timer
+  let quizTimerVal = CONFIG.QUIZ_TIME;
+  const bar = document.getElementById('quiz-timer-bar');
+  bar.style.width = '100%';
+  if (quizTimerId) clearInterval(quizTimerId);
+  quizTimerId = setInterval(() => {
+    quizTimerVal -= 0.1;
+    bar.style.width = Math.max(0, (quizTimerVal / CONFIG.QUIZ_TIME) * 100) + '%';
+    if (quizTimerVal <= 0) { clearInterval(quizTimerId); quizTimerId = null; handleQuizTimeout(); }
+  }, 100);
+}
+
+function handleQuizAnswer(selected, btnEl) {
+  if (selected === quizAnswer) {
+    // CORRECT — stop timer, show bonus, allow continue
+    if (quizTimerId) { clearInterval(quizTimerId); quizTimerId = null; }
+    document.querySelectorAll('.quiz-option').forEach(b => b.classList.add('disabled'));
+    btnEl.classList.remove('wrong');
+    btnEl.classList.add('correct');
+    const fb = document.getElementById('quiz-feedback');
+    fb.textContent = `Doğru! +${CONFIG.QUIZ_BONUS} Puan! 🎉`;
+    fb.className = 'quiz-feedback correct';
+    score += CONFIG.QUIZ_BONUS;
+    playSound('correct');
+    document.getElementById('btn-quiz-continue').style.display = 'block';
+    updateHUD();
+  } else {
+    // WRONG — disable this button, let them try again
+    btnEl.classList.add('wrong', 'disabled');
+    const fb = document.getElementById('quiz-feedback');
+    fb.textContent = 'Yanlış! Tekrar dene!';
+    fb.className = 'quiz-feedback wrong';
+    playSound('wrong');
+  }
+}
+
+function handleQuizTimeout() {
+  document.querySelectorAll('.quiz-option').forEach(b => {
+    b.classList.add('disabled');
+    if (parseInt(b.textContent) === quizAnswer) b.classList.add('reveal');
+  });
+  const fb = document.getElementById('quiz-feedback');
+  fb.textContent = `Süre doldu! Doğru cevap: ${quizAnswer}`;
+  fb.className = 'quiz-feedback wrong';
+  playSound('wrong');
+  document.getElementById('btn-quiz-continue').style.display = 'block';
+}
+
+function closeQuiz() {
+  document.getElementById('quiz-overlay').classList.remove('active');
+  gameState = 'PLAYING';
+  updateHUD();
+}
+
+// ============================================================
+// COLLISIONS & GAME LOGIC
+// ============================================================
+function checkQuizTrigger() {
+  if (score >= quizThreshold) {
+    quizThreshold = Math.floor(score / CONFIG.QUIZ_INTERVAL + 1) * CONFIG.QUIZ_INTERVAL;
+    setTimeout(() => { if (gameState === 'PLAYING') showQuiz(); }, 300);
+  }
+}
+
+function checkCollisions() {
+  const k = `${player.gx},${player.gy}`;
+  const tile = tileAt(player.gx, player.gy);
+
+  // Regular pellet
+  if (tile === 0 && !collected.has(k)) {
+    collected.add(k); score += CONFIG.PELLET_SCORE;
+    playSound('collect'); updateHUD(); checkQuizTrigger();
+  }
+  // Power pellet
+  if (tile === 3 && !collected.has(k)) {
+    collected.add(k); score += CONFIG.POWERUP_SCORE;
+    powerUpActive = true; powerUpTimer = CONFIG.POWERUP_DURATION;
+    snakes.forEach(s => { if (!s.eaten) s.scared = true; });
+    playSound('powerup'); updateHUD(); checkQuizTrigger();
+  }
+
+  // Snakes
+  for (const s of snakes) {
+    if (s.eaten) continue;
+    if (s.gx === player.gx && s.gy === player.gy) {
+      if (s.scared) {
+        s.eaten = true; s.respawnTimer = 4000;
+        score += CONFIG.EAT_SNAKE_SCORE;
+        playSound('eatsnake'); updateHUD(); checkQuizTrigger();
+      } else if (!invulnerable) {
+        playerDeath();
+      }
+    }
+  }
+
+  // Level complete
+  const remaining = totalPellets - collected.size;
+  // collected may have non-pellet keys from power pellets, so recount
+  let pelletCount = 0;
+  for (let y = 0; y < MAP_ROWS; y++)
+    for (let x = 0; x < MAP_COLS; x++)
+      if ((gameMap[y][x]===0||gameMap[y][x]===3) && !collected.has(`${x},${y}`)) pelletCount++;
+  if (pelletCount === 0) levelComplete();
+}
+
+function playerDeath() {
+  lives--;
+  playSound('death');
+  document.getElementById('canvas-container').classList.add('shake');
+  setTimeout(() => document.getElementById('canvas-container').classList.remove('shake'), 300);
+  if (lives <= 0) { gameOver(); return; }
+  player.gx = PLAYER_START.x; player.gy = PLAYER_START.y;
+  player.targetGx = player.gx; player.targetGy = player.gy;
+  player.moveProgress = 1; updatePixelPos(player);
+  invulnerable = true; invulnTimer = CONFIG.RESPAWN_INVULN;
+  // Reset snakes to ghost house
+  snakes.forEach((s, i) => {
+    s.gx = SNAKE_SPAWNS[i].x; s.gy = SNAKE_SPAWNS[i].y;
+    s.targetGx = s.gx; s.targetGy = s.gy;
+    s.moveProgress = 1; s.path = []; s.pathTimer = CONFIG.SNAKE_START_DELAY;
+    s.scared = false; s.eaten = false;
+    updatePixelPos(s);
+  });
+  updateHUD();
+}
+
+function gameOver() {
+  gameState = 'GAME_OVER';
+  saveHighScore(score);
+  document.getElementById('go-score').textContent = score;
+  renderHighScoresInGameOver();
+  showScreen('gameover-screen');
+}
+
+function levelComplete() {
+  gameState = 'LEVEL_COMPLETE';
+  playSound('levelup');
+  const pelletsCollected = collected.size;
+  const timeBonus = 100;
+  const livesBonus = lives * 50;
+  document.getElementById('lc-pellets').textContent = `${pelletsCollected} × ${CONFIG.PELLET_SCORE}`;
+  document.getElementById('lc-time').textContent = `+${timeBonus}`;
+  document.getElementById('lc-lives').textContent = `${lives} × 50 = ${livesBonus}`;
+  score += timeBonus + livesBonus;
+  document.getElementById('lc-total').textContent = score;
+  showScreen('levelcomplete-screen');
+}
+
+// ============================================================
+// HIGH SCORES
+// ============================================================
+const HS_KEY = 'snakeMazeChase_highScores';
+function getHighScores(){try{return JSON.parse(localStorage.getItem(HS_KEY)||'[]');}catch(e){return [];}}
+function saveHighScore(s){try{const sc=getHighScores();sc.push({score:s,date:new Date().toLocaleDateString('tr-TR')});sc.sort((a,b)=>b.score-a.score);sc.splice(5);localStorage.setItem(HS_KEY,JSON.stringify(sc));}catch(e){console.warn(e);}}
+function renderHighScoresInGameOver(){
+  const el=document.getElementById('go-highscores'),sc=getHighScores();
+  el.innerHTML='<div class="highscore-title">🏆 HIGH SCORES</div>';
+  if(!sc.length){el.innerHTML+='<div style="color:var(--text-dim);font-size:12px;text-align:center">No scores yet</div>';return;}
+  sc.forEach((s,i)=>{const c=s.score===score;el.innerHTML+=`<div class="highscore-entry${c?' current':''}"><span class="highscore-rank">#${i+1}</span><span>${s.score}</span><span style="color:var(--text-dim);font-size:11px">${s.date}</span></div>`;});
+}
+function renderHighScoreModal(){
+  const el=document.getElementById('hs-list'),sc=getHighScores();
+  if(!sc.length){el.innerHTML='<div class="hs-empty">Henüz skor yok. Oynamaya başla!</div>';return;}
+  el.innerHTML='';sc.forEach((s,i)=>{el.innerHTML+=`<div class="hs-entry"><span class="hs-rank">#${i+1}</span><span>${s.date}</span><span class="hs-score">${s.score}</span></div>`;});
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+const SET_KEY = 'snakeMazeChase_settings';
+function loadSettings(){try{const s=JSON.parse(localStorage.getItem(SET_KEY)||'null');if(s){musicVol=s.musicVol??0.8;sfxVol=s.sfxVol??1;muted=s.muted??false;bloomEnabled=s.bloom??true;}}catch(e){console.warn(e);}applySettings();}
+function saveSettings(){try{localStorage.setItem(SET_KEY,JSON.stringify({musicVol,sfxVol,muted,bloom:bloomEnabled}));}catch(e){console.warn(e);}}
+function applySettings(){
+  document.getElementById('set-music').value=Math.round(musicVol*100);document.getElementById('set-music-val').textContent=Math.round(musicVol*100)+'%';
+  document.getElementById('set-sfx').value=Math.round(sfxVol*100);document.getElementById('set-sfx-val').textContent=Math.round(sfxVol*100)+'%';
+  document.getElementById('set-mute').checked=muted;document.getElementById('set-bloom').checked=bloomEnabled;
+  document.getElementById('btn-sound-toggle').textContent=muted?'🔇':'🔊';
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function drawMaze() {
+  // Fill wall tiles
+  ctx.fillStyle = '#081020';
+  for (let y = 0; y < MAP_ROWS; y++)
+    for (let x = 0; x < MAP_COLS; x++)
+      if (gameMap[y][x] === 1)
+        ctx.fillRect(offsetX + x*cellSize, offsetY + y*cellSize, cellSize, cellSize);
+
+  // Draw neon outline on wall edges adjacent to non-wall tiles
+  ctx.strokeStyle = '#00f2ff';
+  ctx.lineWidth = 2;
+  if (bloomEnabled) { ctx.shadowColor = '#00f2ff'; ctx.shadowBlur = 6; }
+  ctx.beginPath();
+  for (let y = 0; y < MAP_ROWS; y++) {
+    for (let x = 0; x < MAP_COLS; x++) {
+      if (gameMap[y][x] !== 1) continue;
+      const px = offsetX + x * cellSize, py = offsetY + y * cellSize;
+      if (y === 0 || gameMap[y-1][x] !== 1) { ctx.moveTo(px, py); ctx.lineTo(px+cellSize, py); }
+      if (x === MAP_COLS-1 || gameMap[y][x+1] !== 1) { ctx.moveTo(px+cellSize, py); ctx.lineTo(px+cellSize, py+cellSize); }
+      if (y === MAP_ROWS-1 || gameMap[y+1][x] !== 1) { ctx.moveTo(px, py+cellSize); ctx.lineTo(px+cellSize, py+cellSize); }
+      if (x === 0 || gameMap[y][x-1] !== 1) { ctx.moveTo(px, py); ctx.lineTo(px, py+cellSize); }
+    }
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Ghost house door (pink bar)
+  for (let y = 0; y < MAP_ROWS-1; y++) {
+    for (let x = 0; x < MAP_COLS; x++) {
+      if (gameMap[y][x] === 2 && gameMap[y+1][x] === 4) {
+        const px = offsetX + x * cellSize, py = offsetY + (y+1) * cellSize;
+        ctx.strokeStyle = '#ff69b4'; ctx.lineWidth = 3;
+        if (bloomEnabled) { ctx.shadowColor = '#ff69b4'; ctx.shadowBlur = 8; }
+        ctx.beginPath(); ctx.moveTo(px+2, py); ctx.lineTo(px+cellSize-2, py); ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+}
+
+function drawPellets() {
+  const time = performance.now() * 0.003;
+  for (let y = 0; y < MAP_ROWS; y++) {
+    for (let x = 0; x < MAP_COLS; x++) {
+      const tile = gameMap[y][x];
+      if ((tile !== 0 && tile !== 3) || collected.has(`${x},${y}`)) continue;
+      const px = offsetX + x * cellSize + cellSize / 2;
+      const py = offsetY + y * cellSize + cellSize / 2;
+
+      if (tile === 3) {
+        // Power pellet — large pulsing
+        const r = cellSize * 0.25 + Math.sin(time * 1.5 + x + y) * cellSize * 0.06;
+        if (bloomEnabled) { ctx.shadowColor = '#ff69b4'; ctx.shadowBlur = 12; }
+        ctx.fillStyle = '#ff69b4';
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(px, py, r * 0.4, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        // Regular pellet — small dot
+        const r = cellSize * 0.1 + Math.sin(time + x*3 + y*7) * cellSize * 0.02;
+        if (bloomEnabled) { ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 6; }
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+}
+
+function drawPlayer() {
+  const size = cellSize * 0.85;
+  if (invulnerable && Math.floor(performance.now() / 150) % 2 === 0) ctx.globalAlpha = 0.4;
+  ctx.save();
+  if (player.dir === 'left') {
+    ctx.translate(player.px, player.py); ctx.scale(-1, 1);
+    ctx.drawImage(mouseImg, -size/2, -size/2, size, size);
+  } else {
+    ctx.drawImage(mouseImg, player.px - size/2, player.py - size/2, size, size);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  if (bloomEnabled) {
+    ctx.save(); ctx.shadowColor = '#ff8c00'; ctx.shadowBlur = 10;
+    ctx.strokeStyle = 'rgba(255,140,0,0.12)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(player.px, player.py, size/2+2, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawSnakes() {
+  const hw = snakeImg.naturalWidth/2, hh = snakeImg.naturalHeight/2;
+  const crops = { red:[0,0,hw,hh], blue:[hw,0,hw,hh], green:[0,hh,hw,hh], pink:[hw,hh,hw,hh] };
+  for (const s of snakes) {
+    if (s.eaten) continue;
+    const size = cellSize * 0.9, crop = crops[s.color]; if (!crop) continue;
+    ctx.save();
+    if (s.scared) {
+      ctx.globalAlpha = 0.6 + Math.sin(performance.now()*0.01)*0.3;
+      if (bloomEnabled) { ctx.shadowColor = '#4444ff'; ctx.shadowBlur = 10; }
+    } else if (bloomEnabled) {
+      const gc = {red:'#ff4444',blue:'#4488ff',green:'#00ff88',pink:'#ff69b4'};
+      ctx.shadowColor = gc[s.color]||'#fff'; ctx.shadowBlur = 8;
+    }
+    ctx.drawImage(snakeImg, crop[0],crop[1],crop[2],crop[3], s.px-size/2, s.py-size/2, size, size);
+    ctx.restore();
+  }
+}
+
+function drawPowerUpBar() {
+  if (!powerUpActive) return;
+  const bw = canvas.width - 8, bh = 4, prog = powerUpTimer / CONFIG.POWERUP_DURATION;
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(4, canvas.height-bh-4, bw, bh);
+  ctx.fillStyle = prog > 0.3 ? '#ff69b4' : '#ff0000';
+  if (bloomEnabled) { ctx.shadowColor = '#ff69b4'; ctx.shadowBlur = 6; }
+  ctx.fillRect(4, canvas.height-bh-4, bw*prog, bh);
+  ctx.shadowBlur = 0;
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawPellets(); drawMaze(); drawSnakes(); drawPlayer(); drawPowerUpBar();
+}
+
+// ============================================================
+// UPDATE
+// ============================================================
+function lerp(a, b, t) { return a + (b - a) * Math.min(1, t); }
+
+function update(dt) {
+  if (gameState !== 'PLAYING') return;
+
+  // Player
+  if (player.moveProgress < 1) {
+    player.moveProgress += dt * CONFIG.PLAYER_SPEED;
+    if (player.moveProgress >= 1) {
+      player.moveProgress = 1;
+      player.gx = player.targetGx; player.gy = player.targetGy;
+      updatePixelPos(player);
+      if (inputQueue.length > 0) tryMovePlayer(inputQueue.shift());
+    } else {
+      const tx = offsetX + player.targetGx*cellSize + cellSize/2;
+      const ty = offsetY + player.targetGy*cellSize + cellSize/2;
+      player.px = lerp(player.prevPx, tx, player.moveProgress);
+      player.py = lerp(player.prevPy, ty, player.moveProgress);
+    }
+  }
+
+  // Snakes
+  const spd = getSnakeSpeed();
+  for (const s of snakes) {
+    if (s.eaten) { s.respawnTimer -= dt*1000; if (s.respawnTimer<=0){s.eaten=false;s.scared=false;const sp=SNAKE_SPAWNS.find(ss=>ss.color===s.color);s.gx=sp.x;s.gy=sp.y;s.targetGx=s.gx;s.targetGy=s.gy;s.moveProgress=1;s.pathTimer=0;updatePixelPos(s);} continue; }
+
+    // Yol yeniden hesaplama zamanlayıcısı
+    s.pathTimer -= dt*1000;
+    if (s.pathTimer <= 0 && s.moveProgress >= 1) {
+      updateSnakeTarget(s);
+      // Chaser daha sık yol hesaplar
+      s.pathTimer = s.type === 'chaser' ? 250 : CONFIG.SNAKE_REPATH_INTERVAL;
+    }
+
+    if (s.moveProgress < 1) {
+      const speed = s.scared ? spd*0.6 : spd;
+      s.moveProgress += dt * speed;
+      if (s.moveProgress >= 1) {
+        s.moveProgress = 1;
+        s.gx = s.targetGx; s.gy = s.targetGy;
+        updatePixelPos(s);
+      } else {
+        const tx = offsetX + s.targetGx * cellSize + cellSize / 2;
+        const ty = offsetY + s.targetGy * cellSize + cellSize / 2;
+        s.px = lerp(s.prevPx, tx, s.moveProgress);
+        s.py = lerp(s.prevPy, ty, s.moveProgress);
+      }
+    } else {
+      // Yılan durdu — yolu varsa bir sonraki adımı başlat
+      if (s.path.length > 0) {
+        moveSnakeAlongPath(s);
+      } else {
+        // Yol boş — hemen yeni yol hesapla (hareketsiz kalmasın!)
+        updateSnakeTarget(s);
+        s.pathTimer = s.type === 'chaser' ? 250 : CONFIG.SNAKE_REPATH_INTERVAL;
+        // Yol bulunduysa hemen ilk adımı başlat
+        if (s.path.length > 0) {
+          moveSnakeAlongPath(s);
+        }
+      }
+    }
+  }
+
+  if (powerUpActive) { powerUpTimer -= dt*1000; if (powerUpTimer<=0){powerUpActive=false;snakes.forEach(s=>{s.scared=false;});} }
+  if (invulnerable) { invulnTimer -= dt*1000; if (invulnTimer<=0) invulnerable=false; }
+  checkCollisions();
+}
+
+// ============================================================
+// HUD
+// ============================================================
+function updateHUD() {
+  document.getElementById('hud-score').textContent = String(score).padStart(4,'0');
+  document.getElementById('hud-level').textContent = String(level).padStart(2,'0');
+  const el = document.getElementById('hud-lives'); el.innerHTML = '';
+  for (let i = 0; i < CONFIG.INITIAL_LIVES; i++) {
+    const d = document.createElement('div');
+    d.className = 'hud-life' + (i >= lives ? ' lost' : '');
+    d.style.backgroundImage = `url('${mouseImg.src}')`;
+    el.appendChild(d);
+  }
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+function gameLoop(ts) {
+  const dt = Math.min((ts - lastTime) / 1000, 0.1);
+  lastTime = ts;
+  if (gameState === 'PLAYING') { update(dt); render(); }
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// SCREENS
+// ============================================================
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+function startGame() {
+  ensureAudio(); score = 0; level = 1; lives = CONFIG.INITIAL_LIVES;
+  quizThreshold = CONFIG.QUIZ_INTERVAL;
+  showScreen('game-screen'); gameState = 'PLAYING';
+  setupLevel(); lastTime = performance.now();
+  if (animFrame) cancelAnimationFrame(animFrame);
+  animFrame = requestAnimationFrame(gameLoop);
+  playSound('click');
+}
+
+function nextLevel() { level++; gameState = 'PLAYING'; showScreen('game-screen'); setupLevel(); playSound('click'); }
+
+// ============================================================
+// EVENTS
+// ============================================================
+const keyMap = {'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right','w':'up','W':'up','s':'down','S':'down','a':'left','A':'left','d':'right','D':'right'};
+document.addEventListener('keydown', e => {
+  if (gameState === 'PLAYING') {
+    const dir = keyMap[e.key];
+    if (dir) { e.preventDefault(); tryMovePlayer(dir); }
+    if (e.key==='Escape'||e.key==='p'||e.key==='P') { gameState='PAUSED'; document.getElementById('pause-overlay').classList.add('active'); }
+  } else if (gameState === 'PAUSED') {
+    if (e.key==='Escape'||e.key==='p'||e.key==='P') { gameState='PLAYING'; document.getElementById('pause-overlay').classList.remove('active'); }
+  }
+});
+
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  const dir = btn.dataset.dir; if (!dir) return;
+  const h = e => { e.preventDefault(); if (gameState==='PLAYING') tryMovePlayer(dir); };
+  btn.addEventListener('touchstart', h, {passive:false}); btn.addEventListener('mousedown', h);
+});
+
+document.getElementById('btn-start').onclick = () => startGame();
+document.getElementById('btn-highscore').onclick = () => { playSound('click'); renderHighScoreModal(); document.getElementById('highscore-overlay').classList.add('active'); };
+document.getElementById('btn-hs-close').onclick = () => document.getElementById('highscore-overlay').classList.remove('active');
+document.getElementById('btn-settings-title').onclick = () => { playSound('click'); showScreen('settings-screen'); };
+document.getElementById('btn-sound-toggle').onclick = () => { ensureAudio(); muted=!muted; document.getElementById('btn-sound-toggle').textContent=muted?'🔇':'🔊'; document.getElementById('set-mute').checked=muted; saveSettings(); if(!muted) playSound('click'); };
+document.getElementById('btn-settings-back').onclick = () => { playSound('click'); showScreen('title-screen'); };
+document.getElementById('btn-settings-save').onclick = () => { musicVol=parseInt(document.getElementById('set-music').value)/100; sfxVol=parseInt(document.getElementById('set-sfx').value)/100; muted=document.getElementById('set-mute').checked; bloomEnabled=document.getElementById('set-bloom').checked; saveSettings(); applySettings(); playSound('click'); showScreen('title-screen'); };
+document.getElementById('set-music').oninput = e => { document.getElementById('set-music-val').textContent = e.target.value+'%'; };
+document.getElementById('set-sfx').oninput = e => { document.getElementById('set-sfx-val').textContent = e.target.value+'%'; };
+document.getElementById('btn-pause').onclick = () => { if(gameState==='PLAYING'){gameState='PAUSED';document.getElementById('pause-overlay').classList.add('active');} };
+document.getElementById('btn-resume').onclick = () => { gameState='PLAYING'; document.getElementById('pause-overlay').classList.remove('active'); };
+document.getElementById('btn-quit').onclick = () => { gameState='TITLE'; document.getElementById('pause-overlay').classList.remove('active'); showScreen('title-screen'); };
+document.getElementById('btn-replay').onclick = () => startGame();
+document.getElementById('btn-go-menu').onclick = () => { playSound('click'); showScreen('title-screen'); };
+document.getElementById('btn-nextlevel').onclick = () => nextLevel();
+document.getElementById('btn-quiz-continue').onclick = () => closeQuiz();
+
+window.addEventListener('resize', () => {
+  if (gameState==='PLAYING'||gameState==='PAUSED') {
+    const hudHeight = 44;
+    const maxW = window.innerWidth - 10;
+    const maxH = window.innerHeight - hudHeight - 10;
+    const ns = Math.floor(Math.min(maxW / MAP_COLS, maxH / MAP_ROWS));
+    if (ns !== cellSize && ns >= 20) {
+      cellSize = Math.max(ns, 28);
+      canvas.width = MAP_COLS * cellSize + 4;
+      canvas.height = MAP_ROWS * cellSize + 4;
+      offsetX = 2; offsetY = 2;
+      // Ölçekleme güncelle
+      const container = document.getElementById('canvas-container');
+      const scaleX = container.clientWidth / canvas.width;
+      const scaleY = container.clientHeight / canvas.height;
+      const scale = Math.min(scaleX, scaleY, 1.5);
+      canvas.style.transform = scale < 0.99 ? `scale(${scale})` : '';
+      canvas.style.transformOrigin = 'center center';
+      updatePixelPos(player); snakes.forEach(s=>updatePixelPos(s)); render();
+    }
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+function onImagesLoaded() { document.getElementById('title-mouse-img').src = mouseImg.src; loadSettings(); }
+if (imagesLoaded >= 2) onImagesLoaded();
+</script>
+</body>
+</html>
